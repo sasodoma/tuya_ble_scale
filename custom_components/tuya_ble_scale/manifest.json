@@ -1,0 +1,25 @@
+{
+  "domain": "tuya_ble_scale",
+  "name": "Tuya BLE Scale (local)",
+  "bluetooth": [
+    {
+      "service_uuid": "00001910-0000-1000-8000-00805f9b34fb"
+    },
+    {
+      "manufacturer_id": 2000,
+      "service_data_uuid": "0000a201-0000-1000-8000-00805f9b34fb",
+      "connectable": true
+    }
+  ],
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "requirements": [
+    "bleak-retry-connector>=3.1.0"
+  ],
+  "version": "0.1.0"
+}

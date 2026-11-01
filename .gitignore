@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Never commit these: they contain your local_key or your weigh-ins.
+fridalog*.txt
+*.pcap
+*.pcapng
+frida-server*

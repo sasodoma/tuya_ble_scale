@@ -1,0 +1,50 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Pick the scale (it only shows up while someone stands on it) or type its Bluetooth address.",
+        "data": {
+          "address": "Bluetooth address"
+        }
+      },
+      "credentials": {
+        "description": "Scale {address}. Enter the Tuya local_key (12 hex digits for local_key[:6], or the key text itself) and device_id. The uuid is filled in from the advertisement; leave it empty to derive it on the next weigh-in.",
+        "data": {
+          "local_key": "local_key",
+          "device_id": "device_id",
+          "uuid": "uuid"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Scale rejected the local_key",
+        "description": "Scale {address} could not decrypt with the stored local_key. It changes whenever the scale is re-paired in the Tuya app; re-extract it and enter it here.",
+        "data": {
+          "local_key": "local_key",
+          "device_id": "device_id",
+          "uuid": "uuid"
+        }
+      }
+    },
+    "error": {
+      "invalid_address": "Not a Bluetooth address (AA:BB:CC:DD:EE:FF).",
+      "invalid_local_key": "Enter 12 hex digits or at least 6 characters of the key.",
+      "invalid_device_id": "device_id must be non-empty ASCII.",
+      "invalid_uuid": "uuid must be ASCII letters and digits.",
+      "ids_too_long": "uuid + device_id are too long for the pairing request."
+    },
+    "abort": {
+      "already_configured": "This scale is already configured.",
+      "not_supported": "This device does not look like a Tuya BLE scale.",
+      "reauth_successful": "Credentials updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "weight": { "name": "Weight" },
+      "last_weigh_in": { "name": "Last weigh-in" },
+      "live_weight": { "name": "Live weight" },
+      "impedance": { "name": "Impedance" }
+    }
+  }
+}
