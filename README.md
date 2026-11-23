@@ -209,7 +209,8 @@ connection, since the session key is derived from the first exchange.
 - **No weight after stepping on the scale.** Turn on debug logging for
   `custom_components.tuya_ble_scale` and weigh yourself again. Lines starting
   with `<-` are decrypted messages from the scale. If there are none, Home
-  Assistant didn't connect in time. A Bluetooth adapter or proxy closer to the
+  Assistant didn't connect in time. Lines with `not connecting:` say why an
+  advertisement was skipped. A Bluetooth adapter or proxy closer to the
   scale helps, because the scale only stays awake for a few seconds after you
   step off.
 - **The phone app is open nearby.** It may grab the connection before Home
@@ -226,17 +227,30 @@ with `uuid + local_key[:6] + device_id`, encrypted with
 `MD5(local_key[:6] + srand)`; and a status query. After that the scale streams
 live weights (`0x8005`) and finally a weigh-complete record (`0x8003`) that
 carries `dp1`. The integration acknowledges every report the same way the app
-does. It also answers the scale's time request, so record timestamps are
-correct. It disconnects a few seconds after the final record.
+does. It also answers the scale's time request. It disconnects a few seconds
+after the final record.
 
 Messages are AES-128-CBC with a fresh IV each time and a CRC16 inside the
 plaintext, split into 20-byte GATT packets. The protocol code lives in
 [`tuya_ble_proto.py`](custom_components/tuya_ble_scale/tuya_ble_proto.py), has
 no Home Assistant imports, and can be reused on its own.
 
-Records come with the scale's own timestamp. A record that isn't newer than the
-last one stored is ignored. That stops a reconnect, or an old offline
-measurement, from overwriting the latest weight.
+Records come with the scale's own timestamp, but its clock only runs while it is
+awake and is corrected when the integration answers its time request. A weigh-in
+made while nothing was connected is stored on the scale with a time that can be
+minutes or hours too early, and is uploaded on the next connection. So records
+are not ordered by timestamp. Each record is remembered by its raw timestamp,
+weight and impedance, and a repeat of one already seen (the scale replays
+records on reconnect) is ignored. Every new record updates the weight in the
+order the scale sends them, oldest first. The scale's time is used as the
+weigh-in time when it is after the previous weigh-in and not in the future.
+Otherwise the time the record was received is used. The
+`tuya_ble_scale_measurement` event carries both times.
+
+Home Assistant only passes an advertisement on to integrations when its content
+changed, and this scale sends the same advertisement every time it wakes up. So
+the integration also checks once a second whether Home Assistant has seen a new
+advertisement from the scale, and connects when it has.
 
 Known gaps: `dp11` is probably the display unit, and nothing here handles a
 scale that is set to pounds. The impedance value isn't turned into body-fat
