@@ -15,8 +15,10 @@ TUYA_LOCAL_NAME = "TY"
 
 EVENT_MEASUREMENT = f"{DOMAIN}_measurement"
 
-# Pause before reconnecting after a session (the scale keeps advertising for a
-# while after a weigh-in; a reconnect would only replay the same record).
-COOLDOWN_AFTER_SUCCESS = 15.0
+# Pause before reconnecting after a session. The scale keeps advertising for a
+# while after a weigh-in, and a reconnect replays the same record, but repeats
+# are ignored, so keep this short: a weigh-in started during the pause is only
+# stored on the scale and uploaded after you step off.
+COOLDOWN_AFTER_SUCCESS = 3.0
 COOLDOWN_AFTER_FAILURE = 5.0
 COOLDOWN_AFTER_AUTH_FAILURE = 300.0
