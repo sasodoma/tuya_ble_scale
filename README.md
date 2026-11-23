@@ -241,7 +241,16 @@ made while nothing was connected is stored on the scale with a time that can be
 minutes or hours too early, and is uploaded on the next connection. So records
 are not ordered by timestamp. Each record is remembered by its raw timestamp,
 weight and impedance, and a repeat of one already seen (the scale replays
-records on reconnect) is ignored. Every new record updates the weight in the
+records on reconnect) is ignored. The scale sometimes stores a weigh-in it
+already sent live and uploads it again later, stamped a few seconds earlier, so
+a record with the same weight and impedance within 10 seconds of one already
+seen counts as the same weigh-in.
+
+A connection usually starts with stored records, which may be followed by live
+weights if someone is standing on the scale. After a final record the
+integration disconnects 3 seconds later, unless live weights followed it. In
+that case it waits for the new final record, which comes about 3 seconds after
+the last live weight. Every new record updates the weight in the
 order the scale sends them, oldest first. The scale's time is used as the
 weigh-in time when it is after the previous weigh-in and not in the future.
 Otherwise the time the record was received is used. The

@@ -124,6 +124,9 @@ class TuyaBLEScaleSession:
         self._error: TuyaBLEScaleError | None = None
         self._last_rx = 0.0
         self._paired = False
+        # Live weights seen since the last final record: someone is standing on
+        # the scale and its final record is still to come.
+        self._weighing = False
         self.got_final = False
         self.device_version: str | None = None
 
@@ -343,24 +346,37 @@ class TuyaBLEScaleSession:
         impedance = values.get(DP_IMPEDANCE)
         if isinstance(values.get(DP_WEIGHT), int):
             self.got_final = True
+            self._weighing = False
             self._on_reading(
                 ScaleReading(values[DP_WEIGHT] / 10, True, timestamp, impedance, values)
             )
         elif isinstance(values.get(DP_LIVE_WEIGHT), int):
+            self._weighing = True
             self._on_reading(
                 ScaleReading(values[DP_LIVE_WEIGHT] / 10, False, timestamp, None, values)
             )
 
     async def _wait_until_idle(self) -> None:
+        """Return once the scale has gone quiet.
+
+        After a final record we only linger briefly, unless live weights came
+        in after it: the scale uploads stored records first, and someone may be
+        standing on it. Its final record comes ~3 s after the last live weight,
+        so then we wait for the full idle timeout instead.
+        """
         loop = asyncio.get_running_loop()
         while not self._done.is_set():
-            idle = self._linger_after_final if self.got_final else self._idle_timeout
+            if self.got_final and not self._weighing:
+                idle = self._linger_after_final
+            else:
+                idle = self._idle_timeout
             remaining = self._last_rx + idle - loop.time()
             if remaining <= 0:
                 _LOGGER.debug("Stream idle, ending session")
                 return
+            # Re-check often: what we wait for changes as frames arrive.
             try:
-                async with asyncio.timeout(remaining):
+                async with asyncio.timeout(min(remaining, 0.5)):
                     await self._done.wait()
             except TimeoutError:
                 continue

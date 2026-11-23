@@ -48,6 +48,11 @@ STORAGE_VERSION = 1
 _MIN_VALID_TS = 1577836800  # 2020-01-01; older = scale clock never set
 _MAX_FUTURE_S = 300  # a record "from the future" means a wrong scale clock
 _SEEN_RECORDS_MAX = 32
+# The scale sometimes stores a weigh-in it already sent live and uploads it
+# again later, stamped a few seconds earlier (when the weight settled rather
+# than when the final record was sent). Same weight within this window = same
+# weigh-in.
+_SAME_RECORD_WINDOW_S = 10
 
 # Home Assistant only dispatches an advertisement to callbacks when its content
 # differs from the previous one, and this scale sends identical adverts on
@@ -208,7 +213,9 @@ class TuyaBLEScaleCoordinator:
             self._log_skip("credentials were rejected; reconfigure the integration")
             return
         if (remaining := self._cooldown_until - time.monotonic()) > 0:
-            self._log_skip(f"cooling down for {remaining:.0f} s after the last session")
+            self._log_skip(
+                "cooling down after the last session", f" ({remaining:.0f} s left)"
+            )
             return
         if self._uuid is None:
             self._log_skip("waiting for an advertisement that carries the uuid")
@@ -226,11 +233,11 @@ class TuyaBLEScaleCoordinator:
         )
 
     @callback
-    def _log_skip(self, reason: str) -> None:
+    def _log_skip(self, reason: str, detail: str = "") -> None:
         """Log why an advert didn't start a session (once per reason, not per advert)."""
         if reason != self._last_skip_reason:
             self._last_skip_reason = reason
-            _LOGGER.debug("Scale advertising, not connecting: %s", reason)
+            _LOGGER.debug("Scale advertising, not connecting: %s%s", reason, detail)
 
     async def _async_session(self, ble_device: BLEDevice) -> None:
         assert self._uuid is not None
@@ -297,7 +304,7 @@ class TuyaBLEScaleCoordinator:
         scale_ts = reading.timestamp
         if scale_ts is not None:
             key: _RecordKey = (scale_ts, round(reading.weight_kg * 10), reading.impedance)
-            if key in self._seen_records:
+            if self._is_seen(key):
                 _LOGGER.debug(
                     "Ignoring repeated record: %.1f kg, scale time %s",
                     reading.weight_kg,
@@ -332,6 +339,15 @@ class TuyaBLEScaleCoordinator:
                     else None
                 ),
             },
+        )
+
+    def _is_seen(self, key: _RecordKey) -> bool:
+        ts, weight, impedance = key
+        return any(
+            weight == seen_weight
+            and impedance == seen_impedance
+            and abs(ts - seen_ts) <= _SAME_RECORD_WINDOW_S
+            for seen_ts, seen_weight, seen_impedance in self._seen_records
         )
 
     def _measured_at_for(self, scale_ts: float | None) -> datetime:
